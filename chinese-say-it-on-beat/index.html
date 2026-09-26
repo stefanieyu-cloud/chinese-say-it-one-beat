@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chinese Say It On Beat</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= TEACHER SCREEN ================= -->
+<section id="setup" class="screen active">
+  <div class="setup-box">
+    <h1>Chinese Say It On Beat</h1>
+
+    <label for="vocab">4 oder 8 Vokabeln – eine pro Zeile: <code>汉字 | pinyin</code></label>
+    <textarea id="vocab" rows="9" spellcheck="false" placeholder="累 | lèi&#10;忙 | máng&#10;饿 | è&#10;渴 | kě"></textarea>
+    <div id="vocabInfo" class="info"></div>
+
+    <div class="buttons">
+      <button id="btnGenerate" class="btn">GENERATE CHALLENGE</button>
+      <button id="btnStart" class="btn primary" disabled>START CHALLENGE</button>
+    </div>
+
+    <div id="timingWarn" class="warn hidden"></div>
+    <div id="preview" class="preview"></div>
+
+    <p class="help">
+      Tasten: <b>SPACE</b> Pause/Weiter · <b>R</b> Restart · <b>ESC</b> Fullscreen verlassen ·
+      <b>← →</b> Runde zurück/vor · <b>Q</b> zurück zur Eingabe
+    </p>
+  </div>
+</section>
+
+<!-- ================= CHALLENGE SCREEN ================= -->
+<section id="challenge" class="screen">
+  <div class="topbar">
+    <span id="roundLabel"></span>
+    <span id="phaseLabel"></span>
+    <span id="prepDots" class="dots"></span>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div id="pauseOverlay" class="overlay hidden">
+    <div>⏸ PAUSE<br><small>SPACE = weiter · R = Restart · Q = Eingabe</small></div>
+  </div>
+  <div id="endOverlay" class="overlay hidden">
+    <div>🎉 加油！Geschafft!<br><small>R = nochmal · Q = zurück zur Eingabe</small></div>
+  </div>
+  <div id="calib" class="calib hidden"></div>
+</section>
+
+<audio id="audio" preload="auto"></audio>
+
+<script src="timing.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
