@@ -17,7 +17,6 @@
   const audio = $("audio");
   audio.src = T.audioFile;
 
-  const LETTERS = "ABCDEFGH";
   const NUMS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
 
   let words = [];   // [{hz, py}]
@@ -121,13 +120,14 @@
   function fixPinyin(py) { return py.split(/(\s+)/).map(numToTone).join(""); }
 
   function parseVocab(text) {
+    const seen = new Set();
     return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
       let hz, py;
       const sep = l.match(/\s*[|\t;｜]\s*/);
       if (sep) { hz = l.slice(0, sep.index); py = l.slice(sep.index + sep[0].length); }
       else { const p = l.split(/\s+/); hz = p.shift(); py = p.join(" "); }
       return { hz: hz.trim(), py: fixPinyin(py.trim()) };
-    });
+    }).filter((w) => !seen.has(w.hz) && seen.add(w.hz));   // doppelte Einträge nur einmal
   }
 
   // ---------------------------------------------------------------
@@ -135,6 +135,8 @@
   //  Zufällig ist nur, WELCHE Wörter ein Paar bilden und in welcher
   //  Reihenfolge die Paare kommen. Die 8 Positionen folgen immer
   //  einem einfachen rhythmischen Muster.
+  //  Der ganze Pool (beliebig viele Wörter) wird gemischt und in Paare
+  //  zerlegt – jedes Wort kommt dran, bevor der Pool neu gemischt wird.
   // ---------------------------------------------------------------
   const BASIC = ["XXXXYYYY", "XXYYYYXX"];               // XXXX/YYYY, XXYY/YYXX
   const HARDER = ["XYXYYXYX", "XXYXYYXY", "XYYXYXXY", "XXXYYYYX"];
@@ -146,7 +148,9 @@
     }
     return a;
   }
-  const samePair = (p, q) => p && q && ((p[0] === q[0] && p[1] === q[1]) || (p[0] === q[1] && p[1] === q[0]));
+  // Beim Neumischen soll das erste Paar möglichst kein Wort des letzten Paares enthalten
+  const overlaps = (p, q, n) => p && q && (n >= 4 ? p.some((x) => q.includes(x))
+    : (p[0] === q[0] && p[1] === q[1]) || (p[0] === q[1] && p[1] === q[0]));
 
   // Alle Wörter zufällig zu Paaren zusammenstellen (jedes Wort kommt vor)
   function makePairs(n, avoid) {
@@ -162,7 +166,7 @@
           pairs.push([idx[i], others.length ? others[Math.floor(Math.random() * others.length)] : idx[i]]);
         }
       }
-      if (!samePair(pairs[0], avoid)) break;
+      if (!overlaps(pairs[0], avoid, n)) break;
     }
     return pairs;
   }
@@ -195,11 +199,11 @@
   function updateInfo() {
     const w = parseVocab(vocabEl.value);
     const info = $("vocabInfo");
-    if (w.length < 1 || w.length > 8) {
-      info.textContent = `${w.length} Wörter – bitte 1 bis 8 (empfohlen: 4 oder 8).`;
+    if (w.length < 2) {
+      info.textContent = `${w.length} Vokabel – bitte mindestens 2 verschiedene eingeben.`;
       info.className = "info bad";
     } else {
-      info.textContent = w.map((x, i) => `${LETTERS[i]} = ${x.hz} ${x.py}`).join("   ");
+      info.textContent = `${w.length} Vokabeln im Pool: ` + w.map((x) => `${x.hz} ${x.py}`).join(" · ");
       info.className = "info";
     }
     return w;
@@ -208,7 +212,7 @@
 
   function generate() {
     const w = updateInfo();
-    if (w.length < 1 || w.length > 8) return;
+    if (w.length < 2) return;
     words = w;
     try { localStorage.setItem("sib.vocab", vocabEl.value); } catch (e) {}
     rounds = generateRounds(words.length, cues.length);

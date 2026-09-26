@@ -4,7 +4,7 @@ Statische Web-App (HTML/CSS/JS), läuft auf GitHub Pages. Kein Login, keine Date
 
 ## Ablauf im Unterricht
 1. URL öffnen
-2. 4 oder 8 Vokabeln eingeben (`累 | lèi`, auch `lei4` wird zu `lèi`)
+2. Beliebig viele Vokabeln eingeben (mind. 2) (`累 | lèi`, auch `lei4` wird zu `lèi`)
 3. **GENERATE CHALLENGE** → **START CHALLENGE**
 
 Tasten: SPACE Pause/Weiter · R Restart · ESC Fullscreen verlassen · ← → Runde · Q zurück zur Eingabe
@@ -25,7 +25,7 @@ weil alle Zustände aus `audio.currentTime` kommen – Musik und Marker bleiben 
 
 ## Wortmuster
 Zufällig gewählte Wortpaare, rhythmische Muster: `XXXX/YYYY`, `XXYY/YYXX`, später `XYXY/YXYX` u. ä.
-Jedes eingegebene Wort kommt vor, bevor sich Paare wiederholen.
+Alle Vokabeln bilden einen Pool; jedes Wort kommt dran, bevor der Pool neu gemischt wird. Es sind immer genau 8 Karten sichtbar.
 
 ## Nachjustieren (nur falls nötig)
 `index.html?calibrate` öffnen und starten: **[ ]** verschiebt die ganze Timeline um ∓10 ms (Shift: 50 ms),

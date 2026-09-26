@@ -34,7 +34,7 @@ textarea {
 .preview { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .preview .pr { background: #22222c; border-radius: 8px; padding: 6px 8px; font-size: .85rem; }
 .preview .pr b { color: #ffd400; }
-.preview .pr .row { font-family: Consolas, monospace; font-size: 1rem; letter-spacing: 2px; }
+.preview .pr .row { font-size: 1rem; letter-spacing: 1px; word-break: break-all; }
 .help { color: #888; margin-top: 20px; font-size: .9rem; }
 
 /* ---------- Challenge screen ---------- */
