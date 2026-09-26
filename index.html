@@ -13,6 +13,8 @@
   <div class="setup-box">
     <h1>Chinese Say It On Beat</h1>
 
+    <div class="tempo-row">Tempo: <span class="tempo"></span></div>
+
     <label for="vocab">4 oder 8 Vokabeln – eine pro Zeile: <code>汉字 | pinyin</code></label>
     <textarea id="vocab" rows="9" spellcheck="false" placeholder="累 | lèi&#10;忙 | máng&#10;饿 | è&#10;渴 | kě"></textarea>
     <div id="vocabInfo" class="info"></div>
@@ -37,7 +39,7 @@
   <div class="topbar">
     <span id="roundLabel"></span>
     <span id="phaseLabel"></span>
-    <span id="prepDots" class="dots"></span>
+    <span class="right"><span class="tempo"></span><span id="prepDots" class="dots"></span></span>
   </div>
   <div id="grid" class="grid"></div>
   <div id="pauseOverlay" class="overlay hidden">

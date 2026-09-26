@@ -45,6 +45,18 @@ textarea {
 }
 #phaseLabel { color: #fff; }
 #phaseLabel.speak { color: #ffd400; }
+.topbar .right { display: flex; align-items: center; gap: 2vw; }
+.tempo { display: inline-flex; border: 2px solid #444; border-radius: 10px; overflow: hidden; vertical-align: middle; }
+.tempo button {
+  background: #22222c; color: #bbb; border: 0; border-right: 1px solid #444;
+  font: inherit; font-weight: 700; padding: .35em .7em; cursor: pointer;
+}
+.tempo button:last-child { border-right: 0; }
+.tempo button:hover { color: #fff; }
+.tempo button.on { background: #ffd400; color: #111; }
+.topbar .tempo { font-size: 2.4vh; }
+.tempo-row { margin-bottom: 18px; font-size: 1.1rem; color: #bbb; }
+.tempo-row .tempo { font-size: 1.05rem; margin-left: 8px; }
 .dots { display: flex; gap: 1vh; min-width: 20vh; justify-content: flex-end; }
 .dots i { width: 1.8vh; height: 1.8vh; border-radius: 50%; background: #333; display: block; }
 .dots i.on { background: #888; }
