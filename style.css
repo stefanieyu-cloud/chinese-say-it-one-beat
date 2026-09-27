@@ -6,7 +6,7 @@ body {
   font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
 }
 .hidden { display: none !important; }
-.screen { display: none; height: 100vh; }
+.screen { display: none; height: 100vh; height: 100dvh; overflow-x: hidden; }
 .screen.active { display: flex; }
 
 /* ---------- Teacher screen ---------- */
@@ -31,7 +31,7 @@ textarea {
 .btn.primary { background: #ffd400; color: #111; border-color: #ffd400; }
 .btn:disabled { opacity: .35; cursor: default; }
 .warn { margin-top: 16px; padding: 10px 14px; border-radius: 8px; background: #4a3a10; color: #ffe38a; }
-.preview { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.preview { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr)); gap: 8px; }
 .preview .pr { background: #22222c; border-radius: 8px; padding: 6px 8px; font-size: .85rem; }
 .preview .pr b { color: #ffd400; }
 .preview .pr .row { font-size: 1rem; letter-spacing: 1px; word-break: break-all; }
@@ -50,12 +50,13 @@ textarea {
 /* ---------- Challenge screen ---------- */
 #challenge { flex-direction: column; position: relative; background: #111118; }
 .topbar {
-  height: 9vh; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 3vw; font-size: 3.4vh; font-weight: 700; color: #aaa;
+  min-height: 9vh; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .3em 2vw;
+  padding: 0 3vw; font-size: min(3.4vh, 4vw); font-weight: 700; color: #aaa;
 }
 #phaseLabel { color: #fff; }
 #phaseLabel.speak { color: #ffd400; }
-.topbar .right { display: flex; align-items: center; gap: 2vw; }
+.topbar .right { display: flex; align-items: center; gap: 2vw; flex-wrap: wrap; justify-content: flex-end; }
 .tempo { display: inline-flex; border: 2px solid #444; border-radius: 10px; overflow: hidden; vertical-align: middle; }
 .tempo button {
   background: #22222c; color: #bbb; border: 0; border-right: 1px solid #444;
@@ -64,29 +65,30 @@ textarea {
 .tempo button:last-child { border-right: 0; }
 .tempo button:hover { color: #fff; }
 .tempo button.on { background: #ffd400; color: #111; }
-.topbar .tempo { font-size: 2.4vh; }
+.topbar .tempo { font-size: max(11px, min(2.4vh, 3vw)); }
 .tempo-row { margin-bottom: 18px; font-size: 1.1rem; color: #bbb; }
 .tempo-row .tempo { font-size: 1.05rem; margin-left: 8px; }
-.dots { display: flex; gap: 1vh; min-width: 20vh; justify-content: flex-end; }
-.dots i { width: 1.8vh; height: 1.8vh; border-radius: 50%; background: #333; display: block; }
+.dots { display: flex; gap: min(1vh, 1.2vw); min-width: min(20vh, 22vw); justify-content: flex-end; }
+.dots i { width: min(1.8vh, 2vw); height: min(1.8vh, 2vw); border-radius: 50%; background: #333; display: block; }
 .dots i.on { background: #888; }
 
 .grid {
   flex: 1; display: grid;
   grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);
-  gap: 2.2vh; padding: 0 2.2vh 2.2vh;
+  gap: min(2.2vh, 2vw); padding: 0 min(2.2vh, 2vw) min(2.2vh, 2vw);
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: pointer;
 }
 .cell {
-  position: relative; background: #f5f2ea; color: #1a1a1a; border-radius: 2.5vh;
+  position: relative; background: #f5f2ea; color: #1a1a1a; border-radius: min(2.5vh, 3vw);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border: 1vh solid transparent; transition: transform .06s, background .06s;
+  border: min(1vh, 1.2vw) solid transparent; min-width: 0; transition: transform .06s, background .06s;
   overflow: hidden;
 }
 .cell .num {
-  position: absolute; top: 1vh; left: 1.6vh; font-size: 4.2vh; font-weight: 800; color: #888;
+  position: absolute; top: min(1vh, 1.2vw); left: min(1.6vh, 1.8vw); font-size: min(4.2vh, 3.6vw); font-weight: 800; color: #888;
 }
 .cell .hz { font-size: 19vh; line-height: 1.05; font-weight: 700; white-space: nowrap; }
-.cell .py { font-size: 5.5vh; margin-top: 1vh; color: #444; white-space: nowrap; }
+.cell .py { font-size: 5.5vh; margin-top: min(1vh, 1.2vw); color: #444; white-space: nowrap; }
 .cell.active {
   background: #ffd400; border-color: #fff; transform: scale(1.05);
   box-shadow: 0 0 5vh rgba(255, 212, 0, .75); z-index: 2;
@@ -97,12 +99,35 @@ textarea {
 
 .overlay {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, .6); font-size: 9vh; font-weight: 800; text-align: center; z-index: 5;
+  background: rgba(0, 0, 0, .6); font-size: min(9vh, 12vw); font-weight: 800; text-align: center; z-index: 5;
+  padding: 16px; touch-action: manipulation;
 }
-.overlay small { font-size: 3vh; font-weight: 400; color: #ccc; }
+.overlay small { font-size: min(3vh, 4.2vw); font-weight: 400; color: #ccc; }
+.ov-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: min(3vh, 4vw); }
+.ov-btns .btn { font-size: max(14px, min(2.6vh, 3.6vw)); padding: .6em 1em; }
 
 .calib {
   position: absolute; left: 1vh; bottom: 1vh; z-index: 6; background: rgba(0,0,0,.85);
   color: #0f0; font: 14px/1.45 Consolas, monospace; padding: 10px 14px; border-radius: 8px;
   white-space: pre; max-width: 95vw;
+}
+
+/* ---------- Touch & kleine Bildschirme ---------- */
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.rotate-hint { display: none; font-size: .75em; font-weight: 400; color: #888; }
+@media (orientation: portrait) and (max-width: 700px) {
+  .rotate-hint { display: inline; }
+}
+@media (pointer: coarse) {
+  .tempo button { min-height: 36px; }
+}
+@media (max-width: 600px) {
+  #setup { padding: 16px 12px; }
+  h1 { font-size: 1.6rem; margin-bottom: 14px; }
+  .tempo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .tempo-row .tempo { margin-left: 0; display: flex; flex-wrap: wrap; width: 100%; }
+  .tempo-row .tempo button { flex: 1 1 auto; padding: .45em .3em; }
+  textarea { font-size: 1.25rem; }
+  .buttons .btn { flex: 1 1 100%; }
+  .help { font-size: .85rem; }
 }

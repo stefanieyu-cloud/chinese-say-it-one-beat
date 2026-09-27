@@ -8,6 +8,7 @@ Statische Web-App (HTML/CSS/JS), läuft auf GitHub Pages. Kein Login, keine Date
 3. **GENERATE CHALLENGE** → **START CHALLENGE**
 
 Tasten: SPACE Pause/Weiter · R Restart · ESC Fullscreen verlassen · ← → Runde · Q zurück zur Eingabe
+Touch (Handy/Tablet): Spielfeld antippen = Pause-Menü mit Weiter / Runde / Restart / Eingabe. Querformat empfohlen.
 
 ## Dateien
 - `audio/say-it-on-beat.mp3` – die feste Musik (Master Clock)
@@ -17,6 +18,7 @@ Tasten: SPACE Pause/Weiter · R Restart · ESC Fullscreen verlassen · ← → R
 ## Timeline (aus dem Referenzvideo)
 - ROUND_START (Marker bei ①): 6.240 · 11.545 · 16.917 · 22.122 · 27.361 · 32.533 · 37.704 · 42.976 · 48.382 · 53.587 s
 - Marker: ① +0.000 … ⑧ +2.100 s (Abstand 0,30 s), ⑧ bleibt 0,30 s gelb
+- Runde 1 und 2 haben eigene Marker-Cues (`markerCues` in `timing.js`), ab Runde 3 gilt Start + 0,30 s × (0…7)
 - ROUND_PREVIEW: nächste Gruppe erscheint 2,43 s nach ROUND_START (Runde 1: 8,67 s)
 
 ## Tempo

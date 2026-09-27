@@ -21,17 +21,26 @@
 
   let words = [];   // [{hz, py}]
   let rounds = [];  // [[idx x8], ...]
-  let cues = [];    // ROUND_START-Zeiten (Sekunden in der MP3)
+  let cues = [];    // pro Runde: { start, marks[8], off, preview }
 
+  // ---------------------------------------------------------------
+  //  Timeline pro Runde (alle Zeiten absolut in der MP3):
+  //  start   = ROUND_START (Marker bei ①)
+  //  marks   = Zeitpunkte ①–⑧ (explizite Cues aus timing.js oder start + step·i)
+  //  off     = Marker verschwindet (spätestens beim Preview)
+  //  preview = ROUND_PREVIEW der nächsten Runde
+  // ---------------------------------------------------------------
   function buildCues() {
-    const sh = T.shift || 0;
-    cues = T.roundStarts.map((x) => x + sh);
+    const sh = T.shift || 0, mc = T.markerCues || {};
+    cues = T.roundStarts.map((start, k) => {
+      const marks = Array.isArray(mc[k]) && mc[k].length === 8
+        ? mc[k].map((x) => x + sh)
+        : Array.from({ length: 8 }, (_, i) => start + sh + i * T.markerStep);
+      const preview = start + sh + T.previewAfter;
+      return { start: marks[0], marks, preview, off: Math.min(marks[7] + T.lastWordHold, preview) };
+    });
   }
   buildCues();
-
-  // Zeitpunkte innerhalb einer Runde (relativ zu ROUND_START)
-  const markerEnd = () => 7 * T.markerStep + T.lastWordHold;   // Marker verschwindet
-  const previewAt = () => T.previewAfter;                        // ROUND_PREVIEW der nächsten Runde
 
   // ---------------------------------------------------------------
   //  Zustand zu Zeitpunkt t – rein aus audio.currentTime berechnet.
@@ -41,27 +50,28 @@
   function stateAt(t) {
     if (!cues.length) return { round: 0, marker: -1, phase: "intro", frac: 0 };
     let k = -1;
-    for (let i = 0; i < cues.length; i++) { if (cues[i] <= t) k = i; else break; }
+    for (let i = 0; i < cues.length; i++) { if (cues[i].start <= t) k = i; else break; }
 
     if (k === -1) {
       // Intro: Runde 1 ist schon sichtbar, kein Marker
-      const lead = (cues.length > 1 ? cues[1] - cues[0] : 5.3) - previewAt();
-      const frac = 1 - (cues[0] - t) / lead;
+      const lead = cues.length > 1 ? cues[1].start - cues[0].preview : 2.8;
+      const frac = 1 - (cues[0].start - t) / lead;
       return { round: 0, marker: -1, phase: "intro", frac };
     }
-    const into = t - cues[k];
-    if (into < markerEnd()) {
+    const c = cues[k];
+    if (t < c.off) {
       // ROUND_START … Wort ⑧: gelber Marker läuft
-      return { round: k, marker: Math.min(7, Math.floor(into / T.markerStep)), phase: "speak" };
+      let m = 0;
+      while (m < 7 && c.marks[m + 1] <= t) m++;
+      return { round: k, marker: m, phase: "speak" };
     }
     if (k + 1 >= cues.length) return { round: k, marker: -1, phase: "end" };
-    if (into < previewAt()) {
+    if (t < c.preview) {
       // kurze Lücke zwischen Ende von ⑧ und ROUND_PREVIEW
       return { round: k, marker: -1, phase: "gap" };
     }
     // ROUND_PREVIEW: nächste Runde sichtbar, kein Marker, bis zum nächsten ROUND_START
-    const p0 = cues[k] + previewAt();
-    return { round: k + 1, marker: -1, phase: "prep", frac: (t - p0) / (cues[k + 1] - p0) };
+    return { round: k + 1, marker: -1, phase: "prep", frac: (t - c.preview) / (cues[k + 1].start - c.preview) };
   }
 
   // Glatte Zeit: audio.currentTime + Interpolation zwischen seinen Updates
@@ -234,7 +244,7 @@
       (open ? ` · noch nicht dran gewesen: ${open} (kommen beim nächsten Generate zuerst)` : "");
     $("preview").innerHTML = rounds.map((r, i) => {
       const L = r.map((x) => words[x].hz);
-      return `<div class="pr"><b>Runde ${i + 1}</b> <small>${cues[i].toFixed(2)} s</small>
+      return `<div class="pr"><b>Runde ${i + 1}</b> <small>${cues[i].start.toFixed(2)} s</small>
         <div class="row">${L.slice(0, 4).join("")}<br>${L.slice(4).join("")}</div></div>`;
     }).join("");
     $("btnStart").disabled = false;
@@ -275,6 +285,7 @@
       const hz = cells[i].children[1], py = cells[i].children[2];
       hz.textContent = w.hz;
       py.textContent = w.py;
+      py.style.fontSize = `min(5.5vh, ${Math.min(4.5, 34 / Math.max(1, w.py.length))}vw)`;
       const len = [...w.hz].length;
       hz.style.fontSize = `min(19vh, ${36 / len}vh, ${20 / len}vw)`;
     });
@@ -322,8 +333,7 @@
     if (document.activeElement) document.activeElement.blur();
     $("setup").classList.remove("active");
     $("challenge").classList.add("active");
-    const el = document.documentElement;
-    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
+    enterFullscreen();
     $("calib").classList.toggle("hidden", !CALIBRATE);
     running = true;
     resetShown();
@@ -338,9 +348,33 @@
   function quit() {
     running = false;
     audio.pause();
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    leaveFullscreen();
     $("challenge").classList.remove("active");
     $("setup").classList.add("active");
+  }
+
+  // Fullscreen nur, wenn das Gerät es kann – nie mit Fehler (z. B. iPhone)
+  function enterFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req || document.fullscreenElement || document.webkitFullscreenElement) return;
+    try {
+      const p = req.call(el);
+      if (p && p.then) {
+        p.then(() => {
+          // auf Handys nach Möglichkeit ins Querformat drehen
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {});
+        }).catch(() => {});
+      }
+    } catch (e) {}
+  }
+  function leaveFullscreen() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!exit || !(document.fullscreenElement || document.webkitFullscreenElement)) return;
+    try {
+      const p = exit.call(document);
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
   }
 
   function togglePause() {
@@ -363,11 +397,30 @@
     if (!cues.length) return;
     const s = stateAt(audioTime());
     const target = Math.max(0, Math.min(cues.length - 1, s.round + dir));
-    const t = target === 0 ? 0 : cues[target - 1] + previewAt() + 0.01;
+    const t = target === 0 ? 0 : cues[target - 1].preview + 0.01;
     $("endOverlay").classList.add("hidden");
     resetShown();
     audio.currentTime = Math.max(0, t);
   }
+
+  // Touch/Maus: Spielfeld antippen = Pause-Menü, Buttons in den Overlays
+  grid.addEventListener("click", () => { if (running) togglePause(); });
+  $("pauseOverlay").addEventListener("click", (e) => {
+    if (!e.target.closest("button")) audio.play().catch(() => {});
+  });
+  document.querySelectorAll(".ov-btns").forEach((box) => box.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || !running) return;
+    e.stopPropagation();
+    b.blur();   // damit SPACE weiter Pause/Weiter bleibt
+    switch (b.dataset.act) {
+      case "play": audio.play().catch(() => {}); break;
+      case "restart": restart(); break;
+      case "prev": jumpRound(-1); break;
+      case "next": jumpRound(1); break;
+      case "quit": quit(); break;
+    }
+  }));
 
   document.addEventListener("keydown", (e) => {
     if (!running) return;

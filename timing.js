@@ -23,6 +23,16 @@ window.BEAT_TIMING = {
   // Abstand des Markers von Wort zu Wort (① +0.000 … ⑧ +2.100)
   markerStep: 0.300,
 
+  // Explizite Marker-Zeitpunkte ①–⑧ für einzelne Runden (Index 0 = Runde 1).
+  // Runde 1 und 2: die Musik liegt dort 0,129 s bzw. 0,075 s später als in
+  // Runde 4/5 (per Kreuzkorrelation aus der MP3 gemessen). Die Cues liegen
+  // deshalb auf denselben hörbaren Einsätzen wie in Runde 4/5.
+  // Ab Runde 3 gilt unverändert: roundStart + markerStep × (0 … 7).
+  markerCues: {
+    0: [6.369, 6.669, 6.969, 7.269, 7.569, 7.869, 8.169, 8.469],
+    1: [11.620, 11.920, 12.220, 12.520, 12.820, 13.120, 13.420, 13.720]
+  },
+
   // Wie lange Wort ⑧ gelb bleibt (danach verschwindet der Marker)
   lastWordHold: 0.300,
 

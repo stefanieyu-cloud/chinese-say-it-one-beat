@@ -29,7 +29,8 @@
 
     <p class="help">
       Tasten: <b>SPACE</b> Pause/Weiter · <b>R</b> Restart · <b>ESC</b> Fullscreen verlassen ·
-      <b>← →</b> Runde zurück/vor · <b>Q</b> zurück zur Eingabe
+      <b>← →</b> Runde zurück/vor · <b>Q</b> zurück zur Eingabe ·
+      <b>Touch:</b> Spielfeld antippen = Pause-Menü
     </p>
 
     <footer class="site-footer">
@@ -48,14 +49,28 @@
   <div class="topbar">
     <span id="roundLabel"></span>
     <span id="phaseLabel"></span>
+    <span class="rotate-hint">↻ Querformat empfohlen</span>
     <span class="right"><span class="tempo"></span><span id="prepDots" class="dots"></span></span>
   </div>
   <div id="grid" class="grid"></div>
   <div id="pauseOverlay" class="overlay hidden">
-    <div>⏸ PAUSE<br><small>SPACE = weiter · R = Restart · Q = Eingabe</small></div>
+    <div>⏸ PAUSE<br><small>SPACE = weiter · R = Restart · Q = Eingabe</small>
+      <div class="ov-btns">
+        <button type="button" class="btn primary" data-act="play">▶ Weiter</button>
+        <button type="button" class="btn" data-act="prev">◀ Runde</button>
+        <button type="button" class="btn" data-act="next">Runde ▶</button>
+        <button type="button" class="btn" data-act="restart">↺ Restart</button>
+        <button type="button" class="btn" data-act="quit">✕ Eingabe</button>
+      </div>
+    </div>
   </div>
   <div id="endOverlay" class="overlay hidden">
-    <div>🎉 加油！Geschafft!<br><small>R = nochmal · Q = zurück zur Eingabe</small></div>
+    <div>🎉 加油！Geschafft!<br><small>R = nochmal · Q = zurück zur Eingabe</small>
+      <div class="ov-btns">
+        <button type="button" class="btn primary" data-act="restart">↺ Nochmal</button>
+        <button type="button" class="btn" data-act="quit">✕ Eingabe</button>
+      </div>
+    </div>
   </div>
   <div id="calib" class="calib hidden"></div>
 </section>
