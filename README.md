@@ -26,6 +26,7 @@ weil alle Zustände aus `audio.currentTime` kommen – Musik und Marker bleiben 
 ## Wortmuster
 Zufällig gewählte Wortpaare, rhythmische Muster: `XXXX/YYYY`, `XXYY/YYXX`, später `XYXY/YXYX` u. ä.
 Alle Vokabeln bilden einen Pool; jedes Wort kommt dran, bevor der Pool neu gemischt wird. Es sind immer genau 8 Karten sichtbar.
+Die App merkt sich (im Browser), welche Wörter schon dran waren – beim nächsten Generate kommen zuerst die übrigen.
 
 ## Nachjustieren (nur falls nötig)
 `index.html?calibrate` öffnen und starten: **[ ]** verschiebt die ganze Timeline um ∓10 ms (Shift: 50 ms),

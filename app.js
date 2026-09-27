@@ -153,10 +153,12 @@
     : (p[0] === q[0] && p[1] === q[1]) || (p[0] === q[1] && p[1] === q[0]));
 
   // Alle Wörter zufällig zu Paaren zusammenstellen (jedes Wort kommt vor)
-  function makePairs(n, avoid) {
+  //  first = Wörter, die bevorzugt zuerst drankommen (noch nicht verwendet)
+  function makePairs(n, avoid, first) {
     let pairs = [];
     for (let attempt = 0; attempt < 30; attempt++) {
-      const idx = shuffle([...Array(n).keys()]);
+      const pre = first ? shuffle([...first]) : [];
+      const idx = pre.concat(shuffle([...Array(n).keys()].filter((i) => !pre.includes(i))));
       pairs = [];
       for (let i = 0; i < n; i += 2) {
         if (i + 1 < n) pairs.push([idx[i], idx[i + 1]]);
@@ -173,11 +175,11 @@
 
   function applyPattern(p, x, y) { return [...p].map((c) => (c === "X" ? x : y)); }
 
-  function generateRounds(n, total) {
+  function generateRounds(n, total, fresh) {
     const out = [];
     let cycle = 0, last = null;
     while (out.length < total) {
-      for (const [x, y] of makePairs(n, last)) {
+      for (const [x, y] of makePairs(n, last, cycle === 0 ? fresh : null)) {
         if (out.length >= total) break;
         const pats = cycle === 0 ? BASIC : shuffle([...HARDER]).slice(0, 2);
         for (const p of pats) if (out.length < total) out.push(applyPattern(p, x, y));
@@ -215,7 +217,21 @@
     if (w.length < 2) return;
     words = w;
     try { localStorage.setItem("sib.vocab", vocabEl.value); } catch (e) {}
-    rounds = generateRounds(words.length, cues.length);
+
+    // Wörter, die in früheren Challenges schon dran waren, kommen zuletzt
+    let used = new Set();
+    try { used = new Set(JSON.parse(localStorage.getItem("sib.usedWords") || "[]")); } catch (e) {}
+    const fresh = words.map((x, i) => i).filter((i) => !used.has(words[i].hz));
+    rounds = generateRounds(words.length, cues.length, fresh.length < words.length ? fresh : null);
+
+    // merken; sind alle Wörter des Pools einmal dran gewesen, beginnt es von vorn
+    rounds.flat().forEach((i) => used.add(words[i].hz));
+    const allUsed = words.every((x) => used.has(x.hz));
+    const inChallenge = new Set(rounds.flat()).size;
+    try { localStorage.setItem("sib.usedWords", JSON.stringify(allUsed ? [] : words.map((x) => x.hz).filter((h) => used.has(h)))); } catch (e) {}
+    const open = allUsed ? 0 : words.filter((x) => !used.has(x.hz)).length;
+    $("vocabInfo").textContent += `   —   in dieser Challenge: ${inChallenge} Wörter` +
+      (open ? ` · noch nicht dran gewesen: ${open} (kommen beim nächsten Generate zuerst)` : "");
     $("preview").innerHTML = rounds.map((r, i) => {
       const L = r.map((x) => words[x].hz);
       return `<div class="pr"><b>Runde ${i + 1}</b> <small>${cues[i].toFixed(2)} s</small>

@@ -37,6 +37,16 @@ textarea {
 .preview .pr .row { font-size: 1rem; letter-spacing: 1px; word-break: break-all; }
 .help { color: #888; margin-top: 20px; font-size: .9rem; }
 
+/* dezenter Footer – nur auf der Eingabeseite, nicht im Spielfeld */
+.setup-box { display: flex; flex-direction: column; min-height: 100%; min-width: 0; }
+.site-footer {
+  margin-top: auto; padding-top: 28px; text-align: center;
+  font-size: .75rem; line-height: 1.5; color: #6c6c78;
+}
+.site-footer p { margin: 0 0 6px; }
+.site-footer a { color: #8a8a96; text-decoration: underline; text-underline-offset: 2px; }
+.site-footer a:hover { color: #bbb; }
+
 /* ---------- Challenge screen ---------- */
 #challenge { flex-direction: column; position: relative; background: #111118; }
 .topbar {
