@@ -4,7 +4,7 @@ Statische Web-App (HTML/CSS/JS), läuft auf GitHub Pages. Kein Login, keine Date
 
 ## Ablauf im Unterricht
 1. URL öffnen
-2. Beliebig viele Vokabeln eingeben (mind. 2) (`累 | lèi`, auch `lei4` wird zu `lèi`)
+2. Beliebig viele Vokabeln eingeben (mind. 2) (`一 | yī`, auch `yi1` wird zu `yī`)
 3. **GENERATE CHALLENGE** → **START CHALLENGE**
 
 Tasten: SPACE Pause/Weiter · R Restart · ESC Fullscreen verlassen · ← → Runde · Q zurück zur Eingabe

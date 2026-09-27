@@ -210,9 +210,12 @@
   //  Teacher-UI
   // ---------------------------------------------------------------
   const vocabEl = $("vocab");
-  const DEFAULT_VOCAB = "累 | lèi\n忙 | máng\n饿 | è\n渴 | kě";
-  try { vocabEl.value = localStorage.getItem("sib.vocab") || DEFAULT_VOCAB; }
-  catch (e) { vocabEl.value = DEFAULT_VOCAB; }
+  const DEFAULT_VOCAB = "一 | yī\n二 | èr\n三 | sān\n四 | sì";
+  const OLD_DEFAULT = "累 | lèi\n忙 | máng\n饿 | è\n渴 | kě";   // früheres Beispiel
+  try {
+    const saved = localStorage.getItem("sib.vocab");
+    vocabEl.value = saved && saved.trim() !== OLD_DEFAULT ? saved : DEFAULT_VOCAB;
+  } catch (e) { vocabEl.value = DEFAULT_VOCAB; }
 
   function updateInfo() {
     const w = parseVocab(vocabEl.value);
