@@ -114,20 +114,26 @@
   //  Vokabeln einlesen
   // ---------------------------------------------------------------
   const TONES = { a: "āáǎàa", e: "ēéěèe", i: "īíǐìi", o: "ōóǒòo", u: "ūúǔùu", "ü": "ǖǘǚǜü" };
-  function numToTone(syl) {
-    const m = syl.match(/^([a-züv:]+)([1-5])$/i);
-    if (!m) return syl;
-    let s = m[1].replace(/v|u:/gi, "ü");
-    const tone = +m[2];
+  // Eine Silbe (Buchstaben ohne Zahl) + Tonzahl → Silbe mit Tonzeichen.
+  // Ton 1–4 = Tonzeichen, Ton 5 / 0 = neutraler Ton (ohne Zeichen).
+  function numToTone(letters, tone) {
+    const s = letters.replace(/u:|v/g, "ü").replace(/U:|V/g, "Ü");
+    if (tone < 1 || tone > 4) return s;
+    // Regeln: a oder e bekommt das Zeichen; bei „ou“ das o; sonst der letzte Vokal
     const low = s.toLowerCase();
     let pos = low.search(/[ae]/);
     if (pos < 0) pos = low.indexOf("ou");
     if (pos < 0) { for (let i = low.length - 1; i >= 0; i--) if ("iouü".includes(low[i])) { pos = i; break; } }
     if (pos < 0) return s;
-    const v = low[pos];
-    return s.slice(0, pos) + TONES[v][tone - 1] + s.slice(pos + 1);
+    const marked = TONES[low[pos]][tone - 1];
+    return s.slice(0, pos) + (s[pos] === low[pos] ? marked : marked.toUpperCase()) + s.slice(pos + 1);
   }
-  function fixPinyin(py) { return py.split(/(\s+)/).map(numToTone).join(""); }
+  // Jede Silbe mit Tonzahl einzeln umwandeln – mit oder ohne Leerzeichen:
+  // „huo3che1zhan4“ → „huǒchēzhàn“, „fu4 jin4“ → „fù jìn“.
+  // Pinyin, das schon Tonzeichen hat (ohne Zahl), bleibt unverändert.
+  function fixPinyin(py) {
+    return py.replace(/([a-zü]+(?::[a-zü]*)?)([0-5])/gi, (_, letters, tone) => numToTone(letters, +tone));
+  }
 
   function parseVocab(text) {
     const seen = new Set();
