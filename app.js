@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   // Versionskennung (Browser-Konsole: F12) – zeigt, ob die aktuelle Datei geladen ist
-  const APP_VERSION = "2026-10-01-pinyin3";
+  const APP_VERSION = "2026-10-02-pinyin4";
   console.info("Chinese Say It On Beat – app.js " + APP_VERSION);
 
   // ---------------------------------------------------------------
@@ -134,35 +134,14 @@
   // Jede Silbe mit Tonzahl einzeln umwandeln – mit oder ohne Leerzeichen:
   // „huo3che1zhan4“ → „huǒchēzhàn“, „fu4 jin4“ → „fù jìn“.
   // Pinyin, das schon Tonzeichen hat (ohne Zahl), bleibt unverändert.
-  // Silbentrennzeichen nach Hanyu-Pinyin-Regel: beginnt eine Silbe mitten im
-  // Wort mit a, o oder e, steht davor ein Apostroph („xi1an1“ → „xī'ān“).
-  const TONED = "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜĀÁǍÀĒÉĚÈĪÍǏÌŌÓǑÒŪÚǓÙǕǗǙǛ";
-  // Gültige Hanyu-Pinyin-Silbe (Anlaut + Auslaut, optional Er-Hua „r“)
-  const SYLLABLE = /^(?:(?:zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])?(?:iang|iong|uang|ueng|ang|eng|ong|ian|iao|uai|uan|üan|ing|ai|ei|ao|ou|an|en|er|ia|ie|iu|in|ua|uo|ui|un|üe|ue|ün|a|o|e|i|u|ü)r?|m|n|ng|hm|hng)$/i;
-  const isSyllable = (s) => SYLLABLE.test(s.replace(/u:|v/gi, "ü"));
-  // Mögliche Endungen der VORHERIGEN, schon umgewandelten Silbe (z. B. „fā|ng“, „hǎ|o“)
-  const CODAS = ["ngr", "nr", "ng", "n", "r", "i", "o", "u"];
-
+  // Einfache, robuste Umwandlung: Jede Tonzahl wandelt die direkt davor stehenden
+  // lateinischen Buchstaben um. Bereits umgewandelte Silben (mit Tonzeichen)
+  // gehören nicht dazu und blockieren die nächste Silbe nicht:
+  // „běijing1“ → „běi“ bleibt, „ijing1“ → „ijīng“ → „běijīng“.
+  // Das Tonzeichen kommt nach der Pinyin-Regel auf a/e, sonst auf o in „ou“,
+  // sonst auf den letzten Vokal – also immer in die zuletzt getippte Silbe.
   function fixPinyin(py) {
-    return py.replace(/([a-zü]+(?::[a-zü]*)?)([0-5])/gi, (_, letters, tone, at, all) => {
-      const prev = all[at - 1] || "";
-      const afterToned = prev !== "" && TONED.includes(prev);
-      if (afterToned) {
-        // Direkt nach einer Silbe mit Tonzeichen: deren Endung (n, ng, o …) abtrennen,
-        // sodass der Rest eine gültige Silbe mit Konsonant am Anfang ist.
-        // „zhōngguo2“ → zhōng + guó, „fāngan4“ → fān + gàn
-        for (const c of CODAS) {
-          const rest = letters.slice(c.length);
-          if (letters.toLowerCase().startsWith(c) && rest && !/^[aoeiuü]/i.test(rest) && isSyllable(rest)) {
-            return letters.slice(0, c.length) + numToTone(rest, +tone);
-          }
-        }
-        if (!/^[aoeiuü]/i.test(letters) && isSyllable(letters)) return numToTone(letters, +tone);
-      }
-      // Silbe beginnt mit a/o/e direkt nach einer anderen Silbe → Apostroph („xi1an1“ → „xī'ān“)
-      const glue = /^[aoe]/i.test(letters) && (/[0-5]/.test(prev) || afterToned);
-      return (glue ? "'" : "") + numToTone(letters, +tone);
-    });
+    return py.replace(/([a-zü:]+)([0-5])/gi, (_, letters, tone) => numToTone(letters, +tone));
   }
 
   // ---------------------------------------------------------------
@@ -339,39 +318,6 @@
     return true;
   }
 
-  // Wird direkt nach einer gerade per Tonzahl abgeschlossenen Silbe ein a/o/e
-  // getippt, beginnt eine neue Silbe → Apostroph davor („fang1“ + „an4“ → „fāng'àn“).
-  // Ohne diese Merkhilfe wäre „fāng|an“ später nicht von „fān|gan“ zu unterscheiden.
-  let seal = null;   // { pos, prefix } – Stelle direkt hinter der zuletzt umgewandelten Silbe
-  function sealApostrophe() {
-    if (!seal) return;
-    const v = vocabEl.value;
-    if (v.slice(0, seal.pos) !== seal.prefix) { seal = null; return; }   // davor wurde etwas geändert
-    const ch = v[seal.pos];
-    if (ch === undefined || ch === "\n") return;                          // noch nichts weitergetippt
-    if (/[aoe]/i.test(ch)) {
-      const c = vocabEl.selectionStart;
-      try { vocabEl.setRangeText("'", seal.pos, seal.pos, "preserve"); }
-      catch (e) { vocabEl.value = v.slice(0, seal.pos) + "'" + v.slice(seal.pos); }
-      const nc = c > seal.pos ? c + 1 : c;
-      try { vocabEl.setSelectionRange(nc, nc); } catch (e) {}
-    }
-    seal = null;
-  }
-  // Apostroph prüfen, umwandeln und – falls gerade eine Silbe per Tonzahl
-  // abgeschlossen wurde – deren Ende für die nächste Eingabe merken.
-  function convertWithSeal() {
-    sealApostrophe();
-    const caret = vocabEl.selectionStart;
-    const digitBeforeCaret = /[0-5]/.test(vocabEl.value[caret - 1] || "");
-    const did = liveConvert();
-    if (did && digitBeforeCaret) {
-      const c = vocabEl.selectionStart;
-      seal = { pos: c, prefix: vocabEl.value.slice(0, c) };
-    }
-    return did;
-  }
-
   // Ablauf beim Tippen:
   //  - Tonzahl (oder Leerzeichen/Zeilenumbruch/Löschen/Einfügen) → sofort umwandeln
   //  - andere Buchstaben → kurz nach der letzten Taste umwandeln (z. B. Großschreibung)
@@ -380,16 +326,15 @@
   let composing = false, timer = null;
   function convertSoon(ms) {
     clearTimeout(timer);
-    timer = setTimeout(() => { if (!composing) { convertWithSeal(); updateInfo(); } }, ms);
+    timer = setTimeout(() => { if (!composing) { liveConvert(); updateInfo(); } }, ms);
   }
   function onTyped(inputType) {
     const caret = vocabEl.selectionStart;
     const ch = vocabEl.value[caret - 1] || "";
     if (/[0-5]/.test(ch) || /\s/.test(ch) || (inputType && inputType !== "insertText")) {
       clearTimeout(timer);
-      convertWithSeal();
+      liveConvert();
     } else {
-      sealApostrophe();   // Apostroph sofort sichtbar, wenn a/o/e nach einer Silbe getippt wird
       convertSoon(400);
     }
   }
@@ -399,9 +344,9 @@
   vocabEl.addEventListener("compositionstart", () => { composing = true; clearTimeout(timer); });
   vocabEl.addEventListener("compositionend", () => {
     // erst nach Abschluss der Komposition umwandeln, damit die Tastatur nichts doppelt einfügt
-    setTimeout(() => { composing = false; convertWithSeal(); updateInfo(); }, 0);
+    setTimeout(() => { composing = false; liveConvert(); updateInfo(); }, 0);
   });
-  vocabEl.addEventListener("blur", () => { clearTimeout(timer); if (convertWithSeal()) updateInfo(); });
+  vocabEl.addEventListener("blur", () => { clearTimeout(timer); if (liveConvert()) updateInfo(); });
   vocabEl.addEventListener("input", (e) => {
     if (!composing && !e.isComposing) onTyped(e.inputType);
     updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = "";
