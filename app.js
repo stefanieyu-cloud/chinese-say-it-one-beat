@@ -131,8 +131,68 @@
   // Jede Silbe mit Tonzahl einzeln umwandeln – mit oder ohne Leerzeichen:
   // „huo3che1zhan4“ → „huǒchēzhàn“, „fu4 jin4“ → „fù jìn“.
   // Pinyin, das schon Tonzeichen hat (ohne Zahl), bleibt unverändert.
+  // Silbentrennzeichen nach Hanyu-Pinyin-Regel: beginnt eine Silbe mitten im
+  // Wort mit a, o oder e, steht davor ein Apostroph („xi1an1“ → „xī'ān“).
+  const TONED = "āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜĀÁǍÀĒÉĚÈĪÍǏÌŌÓǑÒŪÚǓÙǕǗǙǛ";
+  // Gültige Hanyu-Pinyin-Silbe (Anlaut + Auslaut, optional Er-Hua „r“)
+  const SYLLABLE = /^(?:(?:zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])?(?:iang|iong|uang|ueng|ang|eng|ong|ian|iao|uai|uan|üan|ing|ai|ei|ao|ou|an|en|er|ia|ie|iu|in|ua|uo|ui|un|üe|ue|ün|a|o|e|i|u|ü)r?|m|n|ng|hm|hng)$/i;
+  const isSyllable = (s) => SYLLABLE.test(s.replace(/u:|v/gi, "ü"));
+  // Mögliche Endungen der VORHERIGEN, schon umgewandelten Silbe (z. B. „fā|ng“, „hǎ|o“)
+  const CODAS = ["ngr", "nr", "ng", "n", "r", "i", "o", "u"];
+
   function fixPinyin(py) {
-    return py.replace(/([a-zü]+(?::[a-zü]*)?)([0-5])/gi, (_, letters, tone) => numToTone(letters, +tone));
+    return py.replace(/([a-zü]+(?::[a-zü]*)?)([0-5])/gi, (_, letters, tone, at, all) => {
+      const prev = all[at - 1] || "";
+      const afterToned = prev !== "" && TONED.includes(prev);
+      if (afterToned) {
+        // Direkt nach einer Silbe mit Tonzeichen: deren Endung (n, ng, o …) abtrennen,
+        // sodass der Rest eine gültige Silbe mit Konsonant am Anfang ist.
+        // „zhōngguo2“ → zhōng + guó, „fāngan4“ → fān + gàn
+        for (const c of CODAS) {
+          const rest = letters.slice(c.length);
+          if (letters.toLowerCase().startsWith(c) && rest && !/^[aoeiuü]/i.test(rest) && isSyllable(rest)) {
+            return letters.slice(0, c.length) + numToTone(rest, +tone);
+          }
+        }
+        if (!/^[aoeiuü]/i.test(letters) && isSyllable(letters)) return numToTone(letters, +tone);
+      }
+      // Silbe beginnt mit a/o/e direkt nach einer anderen Silbe → Apostroph („xi1an1“ → „xī'ān“)
+      const glue = /^[aoe]/i.test(letters) && (/[0-5]/.test(prev) || afterToned);
+      return (glue ? "'" : "") + numToTone(letters, +tone);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  //  Großschreibung von Eigennamen (Orte, Länder, Sprachen).
+  //  Nur bei sicher erkannten Ausdrücken – sonst bleibt die Schreibung
+  //  des Benutzers erhalten (es wird nie geraten oder kleingeschrieben).
+  // ---------------------------------------------------------------
+  const PROPER = new Set((
+    // Länder, Kontinente, Regionen
+    "中国 美国 英国 法国 德国 日本 韩国 朝鲜 奥地利 瑞士 意大利 西班牙 葡萄牙 俄罗斯 加拿大 澳大利亚 新西兰 " +
+    "印度 泰国 越南 新加坡 马来西亚 印度尼西亚 菲律宾 蒙古 巴西 墨西哥 阿根廷 埃及 南非 荷兰 比利时 瑞典 " +
+    "挪威 丹麦 芬兰 波兰 捷克 匈牙利 希腊 土耳其 爱尔兰 欧洲 亚洲 非洲 美洲 台湾 香港 澳门 " +
+    // Städte
+    "北京 上海 天津 重庆 广州 深圳 南京 杭州 西安 成都 武汉 苏州 青岛 大连 厦门 昆明 哈尔滨 沈阳 拉萨 " +
+    "桂林 长沙 郑州 济南 福州 合肥 乌鲁木齐 维也纳 柏林 巴黎 伦敦 纽约 东京 首尔 罗马 莫斯科 萨尔茨堡 " +
+    "格拉茨 林茨 因斯布鲁克 圣珀尔滕 " +
+    // Provinzen
+    "广东 四川 山东 江苏 浙江 河北 河南 湖北 湖南 云南 贵州 福建 安徽 江西 山西 陕西 甘肃 青海 海南 " +
+    "辽宁 吉林 黑龙江 西藏 新疆 内蒙古 广西 宁夏 " +
+    // Sehenswürdigkeiten, Flüsse, Sprachen
+    "长城 长江 黄河 天安门 故宫 中文 汉语 普通话 英语 英文 德语 德文 法语 法文 日语 日文 韩语 西班牙语"
+  ).split(" "));
+  // Zusammensetzungen aus Eigenname + Endung: 北京人 Běijīngrén, 中国菜 Zhōngguócài
+  const PROPER_SUFFIX = ["人", "菜", "话", "大学", "市", "省"];
+  function isProper(hz) {
+    hz = hz.trim();
+    if (PROPER.has(hz)) return true;
+    return PROPER_SUFFIX.some((s) => hz.endsWith(s) && PROPER.has(hz.slice(0, -s.length)));
+  }
+  function properCase(hz, py) {
+    if (!isProper(hz)) return py;
+    const i = py.search(/\S/);
+    return i < 0 ? py : py.slice(0, i) + py[i].toUpperCase() + py.slice(i + 1);
   }
 
   function parseVocab(text) {
@@ -142,7 +202,7 @@
       const sep = l.match(/\s*[|\t;｜]\s*/);
       if (sep) { hz = l.slice(0, sep.index); py = l.slice(sep.index + sep[0].length); }
       else { const p = l.split(/\s+/); hz = p.shift(); py = p.join(" "); }
-      return { hz: hz.trim(), py: fixPinyin(py.trim()) };
+      return { hz: hz.trim(), py: properCase(hz, fixPinyin(py.trim())) };
     }).filter((w) => !seen.has(w.hz) && seen.add(w.hz));   // doppelte Einträge nur einmal
   }
 
@@ -229,7 +289,71 @@
     }
     return w;
   }
-  vocabEl.addEventListener("input", () => { updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = ""; });
+  // ---------------------------------------------------------------
+  //  Tonzahlen direkt beim Tippen umwandeln: „附近 | fu4jin4“ → „附近 | fùjìn“
+  //  Nur der Pinyin-Teil jeder Zeile (hinter | bzw. Tab/;/｜/Leerzeichen)
+  //  wird umgewandelt. Während der Eingabe mit einer chinesischen
+  //  Tastatur (IME-Komposition) wird nichts verändert.
+  // ---------------------------------------------------------------
+  function convertLine(line) {
+    const sep = line.match(/\s*[|\t;｜]\s*/);
+    if (sep) {
+      const cut = sep.index + sep[0].length;
+      return line.slice(0, cut) + properCase(line.slice(0, sep.index), fixPinyin(line.slice(cut)));
+    }
+    if (!/[^\x00-\x7FüÜ:]/.test(line)) return fixPinyin(line);   // nur lateinische Zeichen
+    const sp = line.match(/\s+/);                                  // „附近 fu4jin4“
+    if (!sp) return line;
+    const cut = sp.index + sp[0].length;
+    return line.slice(0, cut) + properCase(line.slice(0, sp.index), fixPinyin(line.slice(cut)));
+  }
+  const convertText = (text) => text.split("\n").map(convertLine).join("\n");
+
+  function liveConvert() {
+    const old = vocabEl.value;
+    const next = convertText(old);
+    if (next === old) return false;
+    // Cursor stabil halten: Text vor dem Cursor separat umrechnen
+    const caret = vocabEl.selectionStart;
+    const before = old.slice(0, caret);
+    const lineStart = before.lastIndexOf("\n") + 1;
+    const lines = next.split("\n"), lineNo = before.split("\n").length - 1;
+    const prevLen = lines.slice(0, lineNo).reduce((n, l) => n + l.length + 1, 0);
+    const caretInLine = Math.min(convertLine(before.slice(lineStart)).length, lines[lineNo].length);
+    vocabEl.value = next;
+    try { vocabEl.setSelectionRange(prevLen + caretInLine, prevLen + caretInLine); } catch (e) {}
+    return true;
+  }
+
+  // Wird direkt nach einer gerade per Tonzahl abgeschlossenen Silbe ein a/o/e
+  // getippt, beginnt eine neue Silbe → Apostroph davor („fang1“ + „a“ → „fāng'a“).
+  // Ohne diese Merkhilfe wäre „fāng|an“ später nicht von „fān|gan“ zu unterscheiden.
+  let seal = null;   // { pos, text } – Stelle direkt hinter der letzten umgewandelten Silbe
+  function sealApostrophe() {
+    const v = vocabEl.value, c = vocabEl.selectionStart;
+    if (!seal || v.length !== seal.text.length + 1 || c !== seal.pos + 1) return;
+    const ch = v[seal.pos];
+    if (!/[aoe]/i.test(ch) || v.slice(0, seal.pos) + v.slice(seal.pos + 1) !== seal.text) return;
+    vocabEl.value = v.slice(0, seal.pos) + "'" + v.slice(seal.pos);
+    try { vocabEl.setSelectionRange(c + 1, c + 1); } catch (e) {}
+  }
+  function onTyped() {
+    const before = vocabEl.value, caret = vocabEl.selectionStart;
+    sealApostrophe();
+    const justSealed = /[0-5]/.test(before[caret - 1] || "") && liveConvert();
+    if (!justSealed) liveConvert();
+    seal = justSealed ? { pos: vocabEl.selectionStart, text: vocabEl.value } : null;
+  }
+
+  vocabEl.value = convertText(vocabEl.value);   // gespeicherte Liste ebenfalls umwandeln
+
+  let composing = false;
+  vocabEl.addEventListener("compositionstart", () => { composing = true; });
+  vocabEl.addEventListener("compositionend", () => { composing = false; onTyped(); updateInfo(); });
+  vocabEl.addEventListener("input", (e) => {
+    if (!composing && !e.isComposing) onTyped();
+    updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = "";
+  });
 
   function generate() {
     const w = updateInfo();
