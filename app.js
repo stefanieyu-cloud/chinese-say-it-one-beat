@@ -296,6 +296,7 @@
   //  Tastatur (IME-Komposition) wird nichts verändert.
   // ---------------------------------------------------------------
   function convertLine(line) {
+    line = line.normalize("NFC");   // zerlegte Tonzeichen (e + ̌) zusammenfassen
     const sep = line.match(/\s*[|\t;｜]\s*/);
     if (sep) {
       const cut = sep.index + sep[0].length;
@@ -309,49 +310,97 @@
   }
   const convertText = (text) => text.split("\n").map(convertLine).join("\n");
 
+  // Umwandlung im Eingabefeld anwenden. Ersetzt wird nur der tatsächlich
+  // geänderte Ausschnitt (setRangeText) – der Rest der Zeile und alle anderen
+  // Zeilen bleiben unberührt, der Cursor bleibt an derselben Stelle.
   function liveConvert() {
     const old = vocabEl.value;
     const next = convertText(old);
     if (next === old) return false;
-    // Cursor stabil halten: Text vor dem Cursor separat umrechnen
     const caret = vocabEl.selectionStart;
+    // neue Cursorposition: Text vor dem Cursor wird genauso umgewandelt
     const before = old.slice(0, caret);
     const lineStart = before.lastIndexOf("\n") + 1;
     const lines = next.split("\n"), lineNo = before.split("\n").length - 1;
     const prevLen = lines.slice(0, lineNo).reduce((n, l) => n + l.length + 1, 0);
-    const caretInLine = Math.min(convertLine(before.slice(lineStart)).length, lines[lineNo].length);
-    vocabEl.value = next;
-    try { vocabEl.setSelectionRange(prevLen + caretInLine, prevLen + caretInLine); } catch (e) {}
+    const newCaret = prevLen + Math.min(convertLine(before.slice(lineStart)).length, lines[lineNo].length);
+    // kleinsten geänderten Bereich bestimmen
+    let a = 0;
+    while (a < old.length && a < next.length && old[a] === next[a]) a++;
+    let z = 0;
+    while (z < old.length - a && z < next.length - a && old[old.length - 1 - z] === next[next.length - 1 - z]) z++;
+    try {
+      vocabEl.setRangeText(next.slice(a, next.length - z), a, old.length - z, "preserve");
+    } catch (e) { vocabEl.value = next; }
+    try { vocabEl.setSelectionRange(newCaret, newCaret); } catch (e) {}
     return true;
   }
 
   // Wird direkt nach einer gerade per Tonzahl abgeschlossenen Silbe ein a/o/e
-  // getippt, beginnt eine neue Silbe → Apostroph davor („fang1“ + „a“ → „fāng'a“).
+  // getippt, beginnt eine neue Silbe → Apostroph davor („fang1“ + „an4“ → „fāng'àn“).
   // Ohne diese Merkhilfe wäre „fāng|an“ später nicht von „fān|gan“ zu unterscheiden.
-  let seal = null;   // { pos, text } – Stelle direkt hinter der letzten umgewandelten Silbe
+  let seal = null;   // { pos, prefix } – Stelle direkt hinter der zuletzt umgewandelten Silbe
   function sealApostrophe() {
-    const v = vocabEl.value, c = vocabEl.selectionStart;
-    if (!seal || v.length !== seal.text.length + 1 || c !== seal.pos + 1) return;
+    if (!seal) return;
+    const v = vocabEl.value;
+    if (v.slice(0, seal.pos) !== seal.prefix) { seal = null; return; }   // davor wurde etwas geändert
     const ch = v[seal.pos];
-    if (!/[aoe]/i.test(ch) || v.slice(0, seal.pos) + v.slice(seal.pos + 1) !== seal.text) return;
-    vocabEl.value = v.slice(0, seal.pos) + "'" + v.slice(seal.pos);
-    try { vocabEl.setSelectionRange(c + 1, c + 1); } catch (e) {}
+    if (ch === undefined || ch === "\n") return;                          // noch nichts weitergetippt
+    if (/[aoe]/i.test(ch)) {
+      const c = vocabEl.selectionStart;
+      try { vocabEl.setRangeText("'", seal.pos, seal.pos, "preserve"); }
+      catch (e) { vocabEl.value = v.slice(0, seal.pos) + "'" + v.slice(seal.pos); }
+      const nc = c > seal.pos ? c + 1 : c;
+      try { vocabEl.setSelectionRange(nc, nc); } catch (e) {}
+    }
+    seal = null;
   }
-  function onTyped() {
-    const before = vocabEl.value, caret = vocabEl.selectionStart;
+  // Apostroph prüfen, umwandeln und – falls gerade eine Silbe per Tonzahl
+  // abgeschlossen wurde – deren Ende für die nächste Eingabe merken.
+  function convertWithSeal() {
     sealApostrophe();
-    const justSealed = /[0-5]/.test(before[caret - 1] || "") && liveConvert();
-    if (!justSealed) liveConvert();
-    seal = justSealed ? { pos: vocabEl.selectionStart, text: vocabEl.value } : null;
+    const caret = vocabEl.selectionStart;
+    const digitBeforeCaret = /[0-5]/.test(vocabEl.value[caret - 1] || "");
+    const did = liveConvert();
+    if (did && digitBeforeCaret) {
+      const c = vocabEl.selectionStart;
+      seal = { pos: c, prefix: vocabEl.value.slice(0, c) };
+    }
+    return did;
+  }
+
+  // Ablauf beim Tippen:
+  //  - Tonzahl (oder Leerzeichen/Zeilenumbruch/Löschen/Einfügen) → sofort umwandeln
+  //  - andere Buchstaben → kurz nach der letzten Taste umwandeln (z. B. Großschreibung)
+  //  - während einer IME-Komposition (chinesische Tastatur, Handy-Wortvorschläge)
+  //    wird NICHTS verändert; umgewandelt wird erst danach.
+  let composing = false, timer = null;
+  function convertSoon(ms) {
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (!composing) { convertWithSeal(); updateInfo(); } }, ms);
+  }
+  function onTyped(inputType) {
+    const caret = vocabEl.selectionStart;
+    const ch = vocabEl.value[caret - 1] || "";
+    if (/[0-5]/.test(ch) || /\s/.test(ch) || (inputType && inputType !== "insertText")) {
+      clearTimeout(timer);
+      convertWithSeal();
+    } else {
+      sealApostrophe();   // Apostroph sofort sichtbar, wenn a/o/e nach einer Silbe getippt wird
+      convertSoon(400);
+    }
   }
 
   vocabEl.value = convertText(vocabEl.value);   // gespeicherte Liste ebenfalls umwandeln
 
-  let composing = false;
-  vocabEl.addEventListener("compositionstart", () => { composing = true; });
-  vocabEl.addEventListener("compositionend", () => { composing = false; onTyped(); updateInfo(); });
+  vocabEl.addEventListener("compositionstart", () => { composing = true; clearTimeout(timer); });
+  vocabEl.addEventListener("compositionend", () => {
+    // erst nach Abschluss der Komposition umwandeln, damit die Tastatur nichts doppelt einfügt
+    setTimeout(() => { composing = false; convertWithSeal(); updateInfo(); }, 0);
+  });
+  vocabEl.addEventListener("blur", () => { clearTimeout(timer); if (convertWithSeal()) updateInfo(); });
   vocabEl.addEventListener("input", (e) => {
-    if (!composing && !e.isComposing) onTyped();
+    if (!composing && !e.isComposing) onTyped(e.inputType);
     updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = "";
   });
 
