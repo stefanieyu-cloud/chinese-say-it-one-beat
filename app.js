@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   // Versionskennung (Browser-Konsole: F12) – zeigt, ob die aktuelle Datei geladen ist
-  const APP_VERSION = "2026-10-02-pinyin-0927";
+  const APP_VERSION = "2026-10-02-live5";
   console.info("Chinese Say It On Beat – app.js " + APP_VERSION);
 
   // ---------------------------------------------------------------
@@ -265,7 +265,47 @@
     }
     return w;
   }
-  vocabEl.addEventListener("input", () => { updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = ""; });
+  // ---------------------------------------------------------------
+  //  Live-Umwandlung beim Tippen: Sobald eine Tonzahl 0–5 getippt wird, wird
+  //  NUR die gerade abgeschlossene Silbe (Buchstaben direkt vor der Zahl)
+  //  mit fixPinyin() umgewandelt. Alles davor – auch bereits umgewandelte
+  //  Silben mit Tonzeichen – bleibt unberührt.
+  //  „xue2“ → „xué“, dann „xiao4“ → „xuéxiào“.
+  // ---------------------------------------------------------------
+  function convertSyllableBeforeCaret() {
+    const v = vocabEl.value, caret = vocabEl.selectionStart;
+    if (caret !== vocabEl.selectionEnd || !/[0-5]/.test(v[caret - 1] || "")) return;
+    const lineStart = v.lastIndexOf("\n", caret - 1) + 1;
+    const before = v.slice(lineStart, caret);                  // Zeile bis inkl. Tonzahl
+    const sep = before.match(/[|\t;｜]/);
+    // Nur lateinische Buchstaben direkt vor der Zahl werden erfasst – Hanzi
+    // und bereits umgewandelte Silben (é, ě, ù …) bleiben automatisch außen vor.
+    const m = before.match(/([a-zü]+(?::[a-zü]*)?)([0-5])$/i);   // Silbe direkt vor der Zahl
+    if (!m) return;
+    const start = caret - m[0].length;
+    const converted = fixPinyin(m[0]);
+    vocabEl.setRangeText(converted, start, caret, "end");
+    // Eigennamen (z. B. 北京) großschreiben – ändert nur den ersten Buchstaben
+    if (sep) {
+      const line = vocabEl.value.slice(lineStart);
+      const hz = line.slice(0, sep.index);
+      const pyStart = lineStart + sep.index + 1 + (line.slice(sep.index + 1).match(/^\s*/)[0].length);
+      const first = vocabEl.value[pyStart];
+      if (first && properCase(hz, first) !== first) {
+        const pos = vocabEl.selectionStart;
+        vocabEl.setRangeText(first.toUpperCase(), pyStart, pyStart + 1, "preserve");
+        vocabEl.setSelectionRange(pos, pos);
+      }
+    }
+  }
+
+  let composing = false;
+  vocabEl.addEventListener("compositionstart", () => { composing = true; });
+  vocabEl.addEventListener("compositionend", () => { composing = false; convertSyllableBeforeCaret(); updateInfo(); });
+  vocabEl.addEventListener("input", (e) => {
+    if (!composing && !e.isComposing) convertSyllableBeforeCaret();
+    updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = "";
+  });
 
   function generate() {
     const w = updateInfo();
