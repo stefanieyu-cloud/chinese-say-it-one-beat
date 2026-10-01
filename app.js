@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   // Versionskennung (Browser-Konsole: F12) – zeigt, ob die aktuelle Datei geladen ist
-  const APP_VERSION = "2026-10-02-pinyin4";
+  const APP_VERSION = "2026-10-02-pinyin-0927";
   console.info("Chinese Say It On Beat – app.js " + APP_VERSION);
 
   // ---------------------------------------------------------------
@@ -134,14 +134,8 @@
   // Jede Silbe mit Tonzahl einzeln umwandeln – mit oder ohne Leerzeichen:
   // „huo3che1zhan4“ → „huǒchēzhàn“, „fu4 jin4“ → „fù jìn“.
   // Pinyin, das schon Tonzeichen hat (ohne Zahl), bleibt unverändert.
-  // Einfache, robuste Umwandlung: Jede Tonzahl wandelt die direkt davor stehenden
-  // lateinischen Buchstaben um. Bereits umgewandelte Silben (mit Tonzeichen)
-  // gehören nicht dazu und blockieren die nächste Silbe nicht:
-  // „běijing1“ → „běi“ bleibt, „ijing1“ → „ijīng“ → „běijīng“.
-  // Das Tonzeichen kommt nach der Pinyin-Regel auf a/e, sonst auf o in „ou“,
-  // sonst auf den letzten Vokal – also immer in die zuletzt getippte Silbe.
   function fixPinyin(py) {
-    return py.replace(/([a-zü:]+)([0-5])/gi, (_, letters, tone) => numToTone(letters, +tone));
+    return py.replace(/([a-zü]+(?::[a-zü]*)?)([0-5])/gi, (_, letters, tone) => numToTone(letters, +tone));
   }
 
   // ---------------------------------------------------------------
@@ -271,86 +265,7 @@
     }
     return w;
   }
-  // ---------------------------------------------------------------
-  //  Tonzahlen direkt beim Tippen umwandeln: „附近 | fu4jin4“ → „附近 | fùjìn“
-  //  Nur der Pinyin-Teil jeder Zeile (hinter | bzw. Tab/;/｜/Leerzeichen)
-  //  wird umgewandelt. Während der Eingabe mit einer chinesischen
-  //  Tastatur (IME-Komposition) wird nichts verändert.
-  // ---------------------------------------------------------------
-  function convertLine(line) {
-    line = line.normalize("NFC");   // zerlegte Tonzeichen (e + ̌) zusammenfassen
-    const sep = line.match(/\s*[|\t;｜]\s*/);
-    if (sep) {
-      const cut = sep.index + sep[0].length;
-      return line.slice(0, cut) + properCase(line.slice(0, sep.index), fixPinyin(line.slice(cut)));
-    }
-    if (!/[^\x00-\x7FüÜ:]/.test(line)) return fixPinyin(line);   // nur lateinische Zeichen
-    const sp = line.match(/\s+/);                                  // „附近 fu4jin4“
-    if (!sp) return line;
-    const cut = sp.index + sp[0].length;
-    return line.slice(0, cut) + properCase(line.slice(0, sp.index), fixPinyin(line.slice(cut)));
-  }
-  const convertText = (text) => text.split("\n").map(convertLine).join("\n");
-
-  // Umwandlung im Eingabefeld anwenden. Ersetzt wird nur der tatsächlich
-  // geänderte Ausschnitt (setRangeText) – der Rest der Zeile und alle anderen
-  // Zeilen bleiben unberührt, der Cursor bleibt an derselben Stelle.
-  function liveConvert() {
-    const old = vocabEl.value;
-    const next = convertText(old);
-    if (next === old) return false;
-    const caret = vocabEl.selectionStart;
-    // neue Cursorposition: Text vor dem Cursor wird genauso umgewandelt
-    const before = old.slice(0, caret);
-    const lineStart = before.lastIndexOf("\n") + 1;
-    const lines = next.split("\n"), lineNo = before.split("\n").length - 1;
-    const prevLen = lines.slice(0, lineNo).reduce((n, l) => n + l.length + 1, 0);
-    const newCaret = prevLen + Math.min(convertLine(before.slice(lineStart)).length, lines[lineNo].length);
-    // kleinsten geänderten Bereich bestimmen
-    let a = 0;
-    while (a < old.length && a < next.length && old[a] === next[a]) a++;
-    let z = 0;
-    while (z < old.length - a && z < next.length - a && old[old.length - 1 - z] === next[next.length - 1 - z]) z++;
-    try {
-      vocabEl.setRangeText(next.slice(a, next.length - z), a, old.length - z, "preserve");
-    } catch (e) { vocabEl.value = next; }
-    try { vocabEl.setSelectionRange(newCaret, newCaret); } catch (e) {}
-    return true;
-  }
-
-  // Ablauf beim Tippen:
-  //  - Tonzahl (oder Leerzeichen/Zeilenumbruch/Löschen/Einfügen) → sofort umwandeln
-  //  - andere Buchstaben → kurz nach der letzten Taste umwandeln (z. B. Großschreibung)
-  //  - während einer IME-Komposition (chinesische Tastatur, Handy-Wortvorschläge)
-  //    wird NICHTS verändert; umgewandelt wird erst danach.
-  let composing = false, timer = null;
-  function convertSoon(ms) {
-    clearTimeout(timer);
-    timer = setTimeout(() => { if (!composing) { liveConvert(); updateInfo(); } }, ms);
-  }
-  function onTyped(inputType) {
-    const caret = vocabEl.selectionStart;
-    const ch = vocabEl.value[caret - 1] || "";
-    if (/[0-5]/.test(ch) || /\s/.test(ch) || (inputType && inputType !== "insertText")) {
-      clearTimeout(timer);
-      liveConvert();
-    } else {
-      convertSoon(400);
-    }
-  }
-
-  vocabEl.value = convertText(vocabEl.value);   // gespeicherte Liste ebenfalls umwandeln
-
-  vocabEl.addEventListener("compositionstart", () => { composing = true; clearTimeout(timer); });
-  vocabEl.addEventListener("compositionend", () => {
-    // erst nach Abschluss der Komposition umwandeln, damit die Tastatur nichts doppelt einfügt
-    setTimeout(() => { composing = false; liveConvert(); updateInfo(); }, 0);
-  });
-  vocabEl.addEventListener("blur", () => { clearTimeout(timer); if (liveConvert()) updateInfo(); });
-  vocabEl.addEventListener("input", (e) => {
-    if (!composing && !e.isComposing) onTyped(e.inputType);
-    updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = "";
-  });
+  vocabEl.addEventListener("input", () => { updateInfo(); $("btnStart").disabled = true; $("preview").innerHTML = ""; });
 
   function generate() {
     const w = updateInfo();
