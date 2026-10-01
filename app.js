@@ -1,5 +1,8 @@
 (() => {
   "use strict";
+  // Versionskennung (Browser-Konsole: F12) – zeigt, ob die aktuelle Datei geladen ist
+  const APP_VERSION = "2026-10-01-pinyin3";
+  console.info("Chinese Say It On Beat – app.js " + APP_VERSION);
 
   // ---------------------------------------------------------------
   //  Timeline (aus timing.js, im Kalibriermodus lokal verschiebbar)
